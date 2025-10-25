@@ -31,12 +31,12 @@ jobs:
         if: github.ref == 'refs/heads/dev'
         env:
           SFDX_URL: ${{ secrets.SFDX_URL }}
-          run: |
-            echo "Logging masked secret..."
-            echo "First 10 chars: ${SFDX_URL:0:10}***"
-            # Write to auth.txt for CLI login
-            echo "${SFDX_URL}" > auth.txt
-            sf org login sfdx-url -f auth.txt -a DevOrg -s
+        run: |
+          echo "Logging masked secret..."
+          echo "First 10 chars: ${SFDX_URL:0:10}***"
+          # Write to auth.txt for CLI login
+          echo "${SFDX_URL}" > auth.txt
+          sf org login sfdx-url -f auth.txt -a DevOrg -s
 
       - name: Set Environment Secrets
         if: github.ref == 'refs/heads/qa'
