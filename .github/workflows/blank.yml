@@ -30,7 +30,7 @@ jobs:
       - name: Authenticate Dev Org
         if: github.ref == 'refs/heads/Dev'
         env:
-          SFDX_URL: ${{ secrets.SFDX_URL }}
+          SFDX_URL: ${{ secrets.DEV_SFDX_URL }}  # Dev repo secret
         run: |
           echo "Writing auth file for Dev Org..."
           echo "${SFDX_URL}" > auth.txt
@@ -55,7 +55,7 @@ jobs:
       - name: Authenticate QA Org
         if: github.ref == 'refs/heads/QA'
         env:
-          SFDX_URL: ${{ secrets.SFDX_URL }}
+          SFDX_URL: ${{ secrets.QA_SFDX_URL }}  # QA repo secret
         run: |
           echo "Writing auth file for QA Org..."
           echo "${SFDX_URL}" > auth.txt
