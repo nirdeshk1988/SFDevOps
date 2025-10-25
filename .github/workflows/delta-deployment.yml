@@ -1,7 +1,7 @@
 name: Delta Deployment to Dev
 
 on:
-  workflow_dispatch:   # Manual trigger for delta deployments
+  workflow_dispatch:
 
 jobs:
   delta-deploy:
@@ -13,26 +13,25 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Salesforce
+      - name: Authenticate to Dev Org
         run: |
           echo "${{ secrets.DEV_SFDX_URL }}" > auth.txt
           sf org login sfdx-url -f auth.txt -a DevOrg -s
         shell: bash
 
-      - name: Identify Changed Metadata
+      - name: Detect Changed Files
         run: |
           mkdir delta
-          git fetch origin Dev
-          git diff --name-only origin/Dev HEAD | grep "^force-app" > changed-files.txt || true
+          git fetch --all
+          git diff --name-only HEAD^ HEAD | grep "^force-app" > changed-files.txt || true
           echo "Changed Files:"
           cat changed-files.txt || echo "No metadata changed"
         shell: bash
 
-      - name: Generate Delta Package.xml
-        if: success()
+      - name: Generate Package.xml (Simple)
         run: |
           if [ ! -s changed-files.txt ]; then
-            echo "No metadata changes found. Exiting..."
+            echo "No metadata changes found. Skipping deployment."
             exit 0
           fi
 
@@ -40,13 +39,25 @@ jobs:
           echo "<Package xmlns=\"http://soap.sforce.com/2006/04/metadata\">" >> delta/package.xml
 
           while IFS= read -r file; do
-            type=$(dirname "$file" | sed 's|force-app/main/default/||')
+            folder=$(dirname "$file" | awk -F'/' '{print $4}')
             name=$(basename "$file" | sed 's/\..*$//')
+
+            case $folder in
+              classes) type="ApexClass" ;;
+              triggers) type="ApexTrigger" ;;
+              lwc) type="LightningComponentBundle" ;;
+              aura) type="AuraDefinitionBundle" ;;
+              objects) type="CustomObject" ;;
+              layouts) type="Layout" ;;
+              permissionsets) type="PermissionSet" ;;
+              *) echo "Skipping unsupported folder: $folder"; continue ;;
+            esac
 
             echo "  <types>" >> delta/package.xml
             echo "    <members>${name}</members>" >> delta/package.xml
             echo "    <name>${type}</name>" >> delta/package.xml
             echo "  </types>" >> delta/package.xml
+
           done < changed-files.txt
 
           echo "  <version>60.0</version>" >> delta/package.xml
@@ -56,14 +67,13 @@ jobs:
           cat delta/package.xml
         shell: bash
 
-      - name: Deploy Only Changed Metadata
-        if: success()
+      - name: Deploy Delta to Dev
         run: |
           if [ ! -s changed-files.txt ]; then
-            echo "No deployment to run"
+            echo "No deployment needed."
             exit 0
           fi
 
-          echo "Deploying delta metadata to DevOrg..."
-          sf project deploy start -x delta/package.xml -u DevOrg -l RunLocalTests -w 60 --verbose
+          echo "Deploying delta metadata..."
+          sf project deploy start -x delta/package.xml -u DevOrg -l NoTestRun -w 60 --verbose
         shell: bash
