@@ -1,4 +1,4 @@
-name: Salesforce CI/CD
+name: Salesforce CI/CD with Docker CLI
 
 on:
   push:
@@ -16,25 +16,17 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    container:
+      image: salesforce/cli:latest
 
     env:
       TEST_FLAG: ${{ inputs.run_tests }}
-    
+
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Use Salesforce CLI Docker Image
-        run: |
-          echo "Using Salesforce CLI from Docker"
-        shell: bash
-
-      - name: Setup SFDX inside container
-        uses: actions/setup-node@v4 # enables commands
-      - name: Install Salesforce CLI
-        run: npm install --global @salesforce/cli
-
-      # Authenticate Based on Branch
+      # Authenticate based on branch
       - name: Authenticate to Dev Org
         if: github.ref == 'refs/heads/dev'
         run: |
@@ -47,11 +39,11 @@ jobs:
           echo "${{ secrets.QA_SFDX_URL }}" > qaAuth.txt
           sf org login sfdx-url -f qaAuth.txt -a QaOrg -s
 
-      # Deploy code based on branch
+      # Deploy with or without tests
       - name: Deploy to Salesforce
         run: |
           if [ "${TEST_FLAG}" = "true" ]; then
-            echo "Running tests before deployment..."
+            echo "Running tests during deploy..."
             sf project deploy start -l RunLocalTests -w 60
           else
             echo "Deploying without tests..."
