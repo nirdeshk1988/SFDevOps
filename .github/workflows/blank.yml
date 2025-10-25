@@ -3,8 +3,8 @@ name: Salesforce CI/CD with Docker CLI
 on:
   push:
     branches:
-      - dev
-      - qa
+      - Dev
+      - QA
   workflow_dispatch:
     inputs:
       run_tests:
@@ -28,7 +28,7 @@ jobs:
 
       # Authenticate based on branch
       - name: Set Environment Secrets
-        if: github.ref == 'refs/heads/dev'
+        if: github.ref == 'refs/heads/Dev'
         env:
           SFDX_URL: ${{ secrets.SFDX_URL }}
         run: |
@@ -39,7 +39,7 @@ jobs:
          # sf org login sfdx-url -f auth.txt -a DevOrg -s
         shell: bash
       - name: Verify auth.txt exists
-        if: github.ref == 'refs/heads/dev'
+        if: github.ref == 'refs/heads/Dev'
         run: |
           if [ -f auth.txt ]; then
             echo "auth.txt was created successfully!"
@@ -50,23 +50,23 @@ jobs:
         shell: bash
         
       - name: Inspect first few characters safely
-        if: github.ref == 'refs/heads/dev'
+        if: github.ref == 'refs/heads/Dev'
         run: |
           echo "First 10 characters of auth.txt (safe check):"
           head -c 10 auth.txt | od -c
         shell: bash
       
       - name: Login to Dev Org
-        if: github.ref == 'refs/heads/dev'
+        if: github.ref == 'refs/heads/Dev'
         run: sf org login sfdx-url -f auth.txt -a DevOrg -s
   
       - name: Set Environment Secrets
-        if: github.ref == 'refs/heads/qa'
+        if: github.ref == 'refs/heads/QA'
         env:
           SFDX_URL: ${{ secrets.SFDX_URL }}
         run: |
           echo "${SFDX_URL}" > auth.txt
-          sf org login sfdx-url -f auth.txt -a QaOrg -s
+          sf org login sfdx-url -f auth.txt -a QAOrg -s
 
 
       # Deploy with or without tests
