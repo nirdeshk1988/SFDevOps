@@ -53,12 +53,34 @@ jobs:
 
       - name: Generate Delta Package.xml
         run: |
+          if [ ! -s changed-files.txt ]; then
+            echo "No changes found. Exiting..."
+            exit 0
+          fi
+
+          mkdir -p delta
           echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > delta/package.xml
           echo "<Package xmlns=\"http://soap.sforce.com/2006/04/metadata\">" >> delta/package.xml
 
           while IFS= read -r file; do
-            folder=$(dirname "$file")
-            type=$(echo "$folder" | sed 's|force-app/main/default/||')
+            # Determine Salesforce metadata type
+            if [[ "$file" == force-app/main/default/classes/* ]]; then
+              type="ApexClass"
+            elif [[ "$file" == force-app/main/default/triggers/* ]]; then
+              type="ApexTrigger"
+            elif [[ "$file" == force-app/main/default/pages/* ]]; then
+              type="ApexPage"
+            elif [[ "$file" == force-app/main/default/layouts/* ]]; then
+              type="Layout"
+            elif [[ "$file" == force-app/main/default/objects/*/fields/* ]]; then
+              type="CustomField"
+            elif [[ "$file" == force-app/main/default/permissionsets/* ]]; then
+              type="PermissionSet"
+            else
+              type=$(dirname "$file" | sed 's|force-app/main/default/||' | tr '/' '_')
+            fi
+
+            # Get member name without extension
             name=$(basename "$file" | sed 's/\..*$//')
 
             echo "  <types>" >> delta/package.xml
@@ -70,7 +92,7 @@ jobs:
           echo "  <version>61.0</version>" >> delta/package.xml
           echo "</Package>" >> delta/package.xml
 
-          echo "Generated package.xml:"
+          echo "Generated delta/package.xml:"
           cat delta/package.xml
         shell: bash
 
