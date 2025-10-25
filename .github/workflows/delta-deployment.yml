@@ -38,9 +38,9 @@ jobs:
         run: |
           mkdir delta || true
           git fetch origin Dev
-          git diff --name-only origin/main...HEAD | grep "^force-app/main/default" > changed-files.txt || true
-          echo "Changed files list:"
-          cat changed-files.txt || echo "No changes detected."
+          changed_files=$(git diff --name-only origin/main...HEAD -- 'force-app/**' | tr '\n' ',' | sed 's/,$//')
+          echo "Changed files for deployment: $changed_files"
+          echo $changed_files > changed-files.txt
         shell: bash
 
       - name: Exit if nothing changed
@@ -51,58 +51,19 @@ jobs:
           fi
         shell: bash
 
-      - name: Generate Delta Package.xml
+     
+     # 4️⃣ Deploy only changed files
+      - name: Deploy Delta Metadata
         run: |
-          if [ ! -s changed-files.txt ]; then
-            echo "No changes found. Exiting..."
+          changed_files=$(cat changed-files.txt)
+          if [ -z "$changed_files" ]; then
+            echo "No changes to deploy."
             exit 0
           fi
 
-          mkdir -p delta
-          echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > delta/package.xml
-          echo "<Package xmlns=\"http://soap.sforce.com/2006/04/metadata\">" >> delta/package.xml
-
-          while IFS= read -r file; do
-            # Determine Salesforce metadata type
-            if [[ "$file" == force-app/main/default/classes/* ]]; then
-              type="ApexClass"
-            elif [[ "$file" == force-app/main/default/triggers/* ]]; then
-              type="ApexTrigger"
-            elif [[ "$file" == force-app/main/default/pages/* ]]; then
-              type="ApexPage"
-            elif [[ "$file" == force-app/main/default/layouts/* ]]; then
-              type="Layout"
-            elif [[ "$file" == force-app/main/default/objects/*/fields/* ]]; then
-              type="CustomField"
-            elif [[ "$file" == force-app/main/default/permissionsets/* ]]; then
-              type="PermissionSet"
-            else
-              type=$(dirname "$file" | sed 's|force-app/main/default/||' | tr '/' '_')
-            fi
-
-            # Get member name without extension
-            name=$(basename "$file" | sed 's/\..*$//')
-
-            echo "  <types>" >> delta/package.xml
-            echo "    <members>${name}</members>" >> delta/package.xml
-            echo "    <name>${type}</name>" >> delta/package.xml
-            echo "  </types>" >> delta/package.xml
-          done < changed-files.txt
-
-          echo "  <version>61.0</version>" >> delta/package.xml
-          echo "</Package>" >> delta/package.xml
-
-          echo "Generated delta/package.xml:"
-          cat delta/package.xml
-        shell: bash
-
-      - name: Deploy Only Changed Metadata
-        run: |
+          echo "Deploying changed metadata to DevOrg..."
           if [ "${TEST_FLAG}" = "true" ]; then
-            echo "Deploying with tests..."
-            sf project deploy start -x delta/package.xml  -l RunLocalTests -w 60
+            sf project deploy start --source-dir $changed_files -u DevOrg -l RunLocalTests -w 60 --verbose
           else
-            echo "Deploying without tests..."
-            sf project deploy start -x delta/package.xml -l NoTestRun -w 60
-          fi
+            sf project deploy start --source-dir $changed_files -u DevOrg -l NoTestRun -w 60 --verbose
         shell: bash
