@@ -26,56 +26,64 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Authenticate based on branch
-      - name: Set Environment Secrets
+      # ===== Dev Branch Authentication =====
+      - name: Authenticate Dev Org
         if: github.ref == 'refs/heads/Dev'
         env:
-          SFDX_URL: ${{secrets.SFDX_URL}}
+          SFDX_URL: ${{ secrets.SFDX_URL }}
         run: |
-          echo "Logging masked secret..."
-          echo "First 10 chars: ${SFDX_URL:0:10}***"
-          # Write to auth.txt for CLI login
+          echo "Writing auth file for Dev Org..."
           echo "${SFDX_URL}" > auth.txt
-         # sf org login sfdx-url -f auth.txt -a DevOrg -s
-        shell: bash
-      - name: Verify auth.txt exists
-        if: github.ref == 'refs/heads/Dev'
-        run: |
+
+          # Verify file creation
           if [ -f auth.txt ]; then
-            echo "auth.txt was created successfully!"
+            echo "auth.txt created successfully!"
           else
             echo "auth.txt NOT found!"
             exit 1
           fi
-        shell: bash
-        
-      - name: Inspect first few characters safely
-        if: github.ref == 'refs/heads/Dev'
-        run: |
-          echo "First 10 characters of auth.txt (safe check):"
+
+          # Optional: inspect first few characters safely
+          echo "First few characters (safe check):"
           head -c 10 auth.txt | od -c
+
+          # Login to Dev Org
+          sf org login sfdx-url -f auth.txt -a DevOrg -s
         shell: bash
-      
-      - name: Login to Dev Org
-        if: github.ref == 'refs/heads/Dev'
-        run: sf org login sfdx-url -f auth.txt -a DevOrg -s
-  
-      - name: Set Environment Secrets
+
+      # ===== QA Branch Authentication =====
+      - name: Authenticate QA Org
         if: github.ref == 'refs/heads/QA'
         env:
           SFDX_URL: ${{ secrets.SFDX_URL }}
         run: |
+          echo "Writing auth file for QA Org..."
           echo "${SFDX_URL}" > auth.txt
+
+          # Verify file creation
+          if [ -f auth.txt ]; then
+            echo "auth.txt created successfully!"
+          else
+            echo "auth.txt NOT found!"
+            exit 1
+          fi
+
+          # Optional: inspect first few characters safely
+          echo "First few characters (safe check):"
+          head -c 10 auth.txt | od -c
+
+          # Login to QA Org
           sf org login sfdx-url -f auth.txt -a QAOrg -s
+        shell: bash
 
-
-      # Deploy with or without tests
+      # ===== Deploy Salesforce Metadata =====
       - name: Deploy to Salesforce
+        if: github.ref == 'refs/heads/Dev' || github.ref == 'refs/heads/QA'
         run: |
           if [ "${TEST_FLAG}" = "true" ]; then
-            echo "Running tests during deploy..."
+            echo "Running tests during deployment..."
             sf project deploy start -l RunLocalTests -w 60
           else
             echo "Deploying without tests..."
             sf project deploy start -l NoTestRun -w 60
-          fi
+        shell: bash
