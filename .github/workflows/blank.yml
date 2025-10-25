@@ -86,4 +86,5 @@ jobs:
           else
             echo "Deploying without tests..."
             sf project deploy start -l NoTestRun -w 60
+          fi
         shell: bash
