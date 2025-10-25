@@ -37,7 +37,7 @@ jobs:
           # Write to auth.txt for CLI login
           echo "${SFDX_URL}" > auth.txt
           sf org login sfdx-url -f auth.txt -a DevOrg -s
-
+        shell: bash
       - name: Set Environment Secrets
         if: github.ref == 'refs/heads/qa'
         env:
