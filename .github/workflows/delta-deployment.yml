@@ -1,0 +1,56 @@
+name: Delta Deployment to Dev
+
+on:
+  push:
+    branches:
+      - dev
+      - qa
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: "Run Apex tests?"
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: salesforce/cli:latest
+
+    env:
+      TEST_FLAG: ${{ inputs.run_tests }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Authenticate based on branch
+      - name: Set Environment Secrets
+        if: github.ref == 'refs/heads/dev'
+        env:
+          SFDX_URL: ${{ secrets.SFDX_URL }}
+        run: |
+          echo "${SFDX_URL}" > auth.txt
+          sf org login sfdx-url -f auth.txt -a DevOrg -s
+
+      - name: Set Environment Secrets
+        if: github.ref == 'refs/heads/qa'
+        env:
+          SFDX_URL: ${{ secrets.SFDX_URL }}
+        run: |
+          echo "${SFDX_URL}" > auth.txt
+          sf org login sfdx-url -f auth.txt -a QaOrg -s
+
+
+      # Deploy with or without tests
+      - name: Deploy to Salesforce
+        run: |
+          if [ "${TEST_FLAG}" = "true" ]; then
+            echo "Running tests during deploy..."
+            sf project deploy start -l RunLocalTests -w 60
+          else
+            echo "Deploying without tests..."
+            sf project deploy start -l NoTestRun -w 60
+          fi
