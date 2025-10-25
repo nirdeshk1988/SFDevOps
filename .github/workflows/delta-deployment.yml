@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir delta || true
           git fetch origin Dev
-          git diff --name-only origin/Dev...HEAD > changed-files.txt || true
+          git diff --name-only origin/main...HEAD > changed-files.txt || true
           echo "Changed files list:"
           cat changed-files.txt || echo "No changes detected."
         shell: bash
