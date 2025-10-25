@@ -30,4 +30,54 @@ jobs:
           sf org login sfdx-url -f auth.txt -a DevOrg -s
         shell: bash
 
-     
+      - name: Identify Changed Metadata
+        run: |
+          mkdir delta || true
+          git fetch origin Dev
+          git diff --name-only origin/Dev HEAD | grep "^force-app/main/default" > changed-files.txt || true
+
+          echo "Changed files list:"
+          cat changed-files.txt || echo "No changes detected."
+        shell: bash
+
+      - name: Exit if nothing changed
+        run: |
+          if [ ! -s changed-files.txt ]; then
+            echo "No metadata changes found. Skipping deployment."
+            exit 0
+          fi
+        shell: bash
+
+      - name: Generate Delta Package.xml
+        run: |
+          echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > delta/package.xml
+          echo "<Package xmlns=\"http://soap.sforce.com/2006/04/metadata\">" >> delta/package.xml
+
+          while IFS= read -r file; do
+            folder=$(dirname "$file")
+            type=$(echo "$folder" | sed 's|force-app/main/default/||')
+            name=$(basename "$file" | sed 's/\..*$//')
+
+            echo "  <types>" >> delta/package.xml
+            echo "    <members>${name}</members>" >> delta/package.xml
+            echo "    <name>${type}</name>" >> delta/package.xml
+            echo "  </types>" >> delta/package.xml
+          done < changed-files.txt
+
+          echo "  <version>61.0</version>" >> delta/package.xml
+          echo "</Package>" >> delta/package.xml
+
+          echo "Generated package.xml:"
+          cat delta/package.xml
+        shell: bash
+
+      - name: Deploy Only Changed Metadata
+        run: |
+          if [ "${TEST_FLAG}" = "true" ]; then
+            echo "Deploying with tests..."
+            sf project deploy start -x delta/package.xml -u DevOrg -l RunLocalTests -w 60
+          else
+            echo "Deploying without tests..."
+            sf project deploy start -x delta/package.xml -u DevOrg -l NoTestRun -w 60
+          fi
+        shell: bash
