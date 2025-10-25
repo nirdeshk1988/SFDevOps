@@ -3,8 +3,8 @@ name: Salesforce CI/CD with Docker CLI
 on:
   push:
     branches:
-      - Dev
-      - QA
+      - dev
+      - qa
   workflow_dispatch:
     inputs:
       run_tests:
@@ -17,7 +17,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     container:
-      image: salesforce/cli:latest-full
+      image: salesforce/cli:latest
 
     env:
       TEST_FLAG: ${{ inputs.run_tests }}
@@ -26,65 +26,31 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ===== Dev Branch Authentication =====
-      - name: Authenticate Dev Org
-        if: github.ref == 'refs/heads/Dev'
+      # Authenticate based on branch
+      - name: Set Environment Secrets
+        if: github.ref == 'refs/heads/dev'
         env:
-          SFDX_URL: ${{ secrets.DEV_SFDX_URL }}  # Dev repo secret
+          SFDX_URL: ${{ secrets.SFDX_URL }}
         run: |
-          echo "Writing auth file for Dev Org..."
           echo "${SFDX_URL}" > auth.txt
-
-          # Verify file creation
-          if [ -f auth.txt ]; then
-            echo "auth.txt created successfully!"
-          else
-            echo "auth.txt NOT found!"
-            exit 1
-          fi
-
-          # Optional: inspect first few characters safely
-          echo "First few characters (safe check):"
-          head -c 10 auth.txt | od -c
-
-          # Login to Dev Org
           sf org login sfdx-url -f auth.txt -a DevOrg -s
-        shell: bash
 
-      # ===== QA Branch Authentication =====
-      - name: Authenticate QA Org
-        if: github.ref == 'refs/heads/QA'
+      - name: Set Environment Secrets
+        if: github.ref == 'refs/heads/qa'
         env:
-          SFDX_URL: ${{ secrets.QA_SFDX_URL }}  # QA repo secret
+          SFDX_URL: ${{ secrets.SFDX_URL }}
         run: |
-          echo "Writing auth file for QA Org..."
           echo "${SFDX_URL}" > auth.txt
+          sf org login sfdx-url -f auth.txt -a QaOrg -s
 
-          # Verify file creation
-          if [ -f auth.txt ]; then
-            echo "auth.txt created successfully!"
-          else
-            echo "auth.txt NOT found!"
-            exit 1
-          fi
 
-          # Optional: inspect first few characters safely
-          echo "First few characters (safe check):"
-          head -c 10 auth.txt | od -c
-
-          # Login to QA Org
-          sf org login sfdx-url -f auth.txt -a QAOrg -s
-        shell: bash
-
-      # ===== Deploy Salesforce Metadata =====
+      # Deploy with or without tests
       - name: Deploy to Salesforce
-        if: github.ref == 'refs/heads/Dev' || github.ref == 'refs/heads/QA'
         run: |
           if [ "${TEST_FLAG}" = "true" ]; then
-            echo "Running tests during deployment..."
+            echo "Running tests during deploy..."
             sf project deploy start -l RunLocalTests -w 60
           else
             echo "Deploying without tests..."
             sf project deploy start -l NoTestRun -w 60
           fi
-        shell: bash
