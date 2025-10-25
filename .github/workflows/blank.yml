@@ -36,8 +36,19 @@ jobs:
           echo "First 10 chars: ${SFDX_URL:0:10}***"
           # Write to auth.txt for CLI login
           echo "${SFDX_URL}" > auth.txt
-          sf org login sfdx-url -f auth.txt -a DevOrg -s
+         # sf org login sfdx-url -f auth.txt -a DevOrg -s
         shell: bash
+      - name: Verify auth.txt exists
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          if [ -f auth.txt ]; then
+            echo "auth.txt was created successfully!"
+          else
+            echo "auth.txt NOT found!"
+            exit 1
+          fi
+        shell: bash
+        
       - name: Set Environment Secrets
         if: github.ref == 'refs/heads/qa'
         env:
