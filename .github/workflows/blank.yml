@@ -49,6 +49,17 @@ jobs:
           fi
         shell: bash
         
+      - name: Inspect first few characters safely
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          echo "First 10 characters of auth.txt (safe check):"
+          head -c 10 auth.txt | od -c
+        shell: bash
+      
+      - name: Login to Dev Org
+        if: github.ref == 'refs/heads/dev'
+        run: sf org login sfdx-url -f auth.txt -a DevOrg -s
+  
       - name: Set Environment Secrets
         if: github.ref == 'refs/heads/qa'
         env:
