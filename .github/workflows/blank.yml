@@ -1,36 +1,56 @@
-# This is a basic workflow to help you get started with Actions
+name: Salesforce CI/CD with Docker CLI
 
-name: CI
-
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-  # Allows you to run this workflow manually from the Actions tab
+    branches:
+      - dev
+      - qa
   workflow_dispatch:
+    inputs:
+      run_tests:
+        description: "Run Apex tests?"
+        required: true
+        type: boolean
+        default: true
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  deploy:
     runs-on: ubuntu-latest
+    container:
+      image: salesforce/cli:latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    env:
+      TEST_FLAG: ${{ inputs.run_tests }}
+
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      # Authenticate based on branch
+      - name: Set Environment Secrets
+        if: github.ref == 'refs/heads/dev'
+        env:
+          SFDX_URL: ${{ secrets.SFDX_URL }}
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          echo "${SFDX_URL}" > auth.txt
+          sf org login sfdx-url -f auth.txt -a DevOrg -s
+
+      - name: Set Environment Secrets
+        if: github.ref == 'refs/heads/qa'
+        env:
+          SFDX_URL: ${{ secrets.SFDX_URL }}
+        run: |
+          echo "${SFDX_URL}" > auth.txt
+          sf org login sfdx-url -f auth.txt -a QaOrg -s
+
+
+      # Deploy with or without tests
+      - name: Deploy to Salesforce
+        run: |
+          if [ "${TEST_FLAG}" = "true" ]; then
+            echo "Running tests during deploy..."
+            sf project deploy start -l RunLocalTests -w 60
+          else
+            echo "Deploying without tests..."
+            sf project deploy start -l NoTestRun -w 60
+          fi
