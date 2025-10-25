@@ -63,7 +63,7 @@ jobs:
 
           echo "Deploying changed metadata to DevOrg..."
           if [ "${TEST_FLAG}" = "true" ]; then
-            sf project deploy start --source-dir $changed_files -u DevOrg -l RunLocalTests -w 60 --verbose
+            sf project deploy start --source-dir $changed_files -l RunLocalTests -w 60 --verbose
           else
-            sf project deploy start --source-dir $changed_files -u DevOrg -l NoTestRun -w 60 --verbose
+            sf project deploy start --source-dir $changed_files -l NoTestRun -w 60 --verbose
         shell: bash
