@@ -55,10 +55,34 @@ jobs:
             echo "No changes to deploy."
             exit 0
           fi
-
-          echo "Deploying changed metadata to DevOrg..."
+          
+          deploy_args=""
+          
+          echo "Processing changed metadata:"
+          for file in $changed_files; do
+            if [[ "$file" == *"/lwc/"* ]]; then
+              # LWC requires the whole component folder
+              comp_folder=$(echo $file | sed 's|\(.*\/lwc\/[^\/]*\)\/.*|\1|')
+              deploy_args+=" --source-dir $comp_folder"
+            elif [[ "$file" == *"/aura/"* ]]; then
+              comp_folder=$(echo $file | sed 's|\(.*\/aura\/[^\/]*\)\/.*|\1|')
+              deploy_args+=" --source-dir $comp_folder"
+            elif [[ "$file" == *.cls ]] || [[ "$file" == *.trigger ]] || [[ "$file" == *.xml ]]; then
+              # Individual deployable files
+              deploy_args+=" --source-dir $file"
+            else
+              # Default: deploy as folder
+              parent_folder=$(dirname "$file")
+              deploy_args+=" --source-dir $parent_folder"
+            fi
+          done
+          
+          echo "Deploying only changed metadata:"
+          echo "$deploy_args"
+          
           if [ "${TEST_FLAG}" = "true" ]; then
-            sf project deploy start --source-dir "$changed_files" -l RunLocalTests -w 60 --verbose
+            sf project deploy start $deploy_args -l RunLocalTests -w 60 --verbose
           else
-            sf project deploy start --source-dir "$changed_files" -l NoTestRun -w 60 --verbose
+            sf project deploy start $deploy_args -l NoTestRun -w 60 --verbose
           fi
+
