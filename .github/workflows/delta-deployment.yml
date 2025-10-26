@@ -43,6 +43,7 @@ jobs:
       - name: Generate delta using sfdx-git-delta
         run: |
           git fetch origin main
+          mkdir -p delta
           echo "Running sfdx-git-delta: from origin/main to HEAD"
           sf sgd:source:delta --from origin/main --to HEAD --output delta
           echo "Contents of delta directory:"
