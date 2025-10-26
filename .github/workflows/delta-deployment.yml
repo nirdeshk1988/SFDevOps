@@ -1,10 +1,11 @@
-name: Delta Deployment to Dev
+name: Delta Deployment to Dev (SGD enabled)
 
 on:
   workflow_dispatch:
     inputs:
       run_tests:
         description: "Run Apex tests?"
+        required: true
         type: boolean
         default: true
 
@@ -27,62 +28,39 @@ jobs:
       - name: Configure Git safe directory
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Authenticate to Salesforce
+      - name: Install sfdx-git-delta plugin
+        run: |
+          echo "Installing sfdx-git-delta plugin..."
+          echo y | sf plugins install sfdx-git-delta
+
+      - name: Authenticate to Salesforce Dev Org
         env:
           SFDX_URL: ${{ secrets.DEV_SFDX_URL }}
         run: |
           echo "${SFDX_URL}" > auth.txt
           sf org login sfdx-url -f auth.txt -a DevOrg -s
 
-      - name: Identify Changed Metadata
+      - name: Generate delta using sfdx-git-delta
         run: |
           git fetch origin main
-          changed_files=$(git diff --name-only origin/main...HEAD -- 'force-app/**' | tr '\n' ',' | sed 's/,$//')
-          echo "Changed files for deployment: $changed_files"
-          echo "$changed_files" > changed-files.txt
+          echo "Running sfdx-git-delta: from origin/main to HEAD"
+          sf sgd:source:delta --from origin/main --to HEAD --output delta
+          echo "Contents of delta directory:"
+          ls -R delta
 
-      - name: Exit if nothing changed
+      - name: Exit if no delta package generated
         run: |
-          if [ ! -s changed-files.txt ]; then
-            echo "No metadata changes found. Skipping deployment."
+          if [ ! -f delta/package.xml ]; then
+            echo "No changes to deploy or delta package not generated."
             exit 0
           fi
 
-      - name: Deploy Delta Metadata
+      - name: Deploy Delta Package to Dev Org
         run: |
-          changed_files=$(cat changed-files.txt)
-          if [ -z "$changed_files" ]; then
-            echo "No changes to deploy."
-            exit 0
-          fi
-          
-          deploy_args=""
-          
-          echo "Processing changed metadata:"
-          for file in $changed_files; do
-            if [[ "$file" == *"/lwc/"* ]]; then
-              # LWC requires the whole component folder
-              comp_folder=$(echo $file | sed 's|\(.*\/lwc\/[^\/]*\)\/.*|\1|')
-              deploy_args+=" --source-dir $comp_folder"
-            elif [[ "$file" == *"/aura/"* ]]; then
-              comp_folder=$(echo $file | sed 's|\(.*\/aura\/[^\/]*\)\/.*|\1|')
-              deploy_args+=" --source-dir $comp_folder"
-            elif [[ "$file" == *.cls ]] || [[ "$file" == *.trigger ]] || [[ "$file" == *.xml ]]; then
-              # Individual deployable files
-              deploy_args+=" --source-dir $file"
-            else
-              # Default: deploy as folder
-              parent_folder=$(dirname "$file")
-              deploy_args+=" --source-dir $parent_folder"
-            fi
-          done
-          
-          echo "Deploying only changed metadata:"
-          echo "$deploy_args"
-          
           if [ "${TEST_FLAG}" = "true" ]; then
-            sf project deploy start $deploy_args -l RunLocalTests -w 60 --verbose
+            echo "Deploying with tests..."
+            sf project deploy start -x delta/package.xml -u DevOrg -l RunLocalTests -w 60 --verbose
           else
-            sf project deploy start $deploy_args -l NoTestRun -w 60 --verbose
+            echo "Deploying without tests..."
+            sf project deploy start -x delta/package.xml -u DevOrg -l NoTestRun -w 60 --verbose
           fi
-
