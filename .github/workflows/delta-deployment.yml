@@ -60,8 +60,8 @@ jobs:
         run: |
           if [ "${TEST_FLAG}" = "true" ]; then
             echo "Deploying with tests..."
-            sf project deploy start -x delta/package.xml -l RunLocalTests -w 60 --verbose
+            sf project deploy start -x  delta/package/package.xml -l RunLocalTests -w 60 --verbose
           else
             echo "Deploying without tests..."
-            sf project deploy start -x delta/package.xml  -l NoTestRun -w 60 --verbose
+            sf project deploy start -x  delta/package/package.xml  -l NoTestRun -w 60 --verbose
           fi
