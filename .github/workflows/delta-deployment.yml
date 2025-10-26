@@ -39,7 +39,7 @@ jobs:
           git fetch origin main
           changed_files=$(git diff --name-only origin/main...HEAD -- 'force-app/**' | tr '\n' ',' | sed 's/,$//')
           echo "Changed files for deployment: $changed_files"
-          echo $changed_files > changed-files.txt
+          echo "$changed_files" > changed-files.txt
 
       - name: Exit if nothing changed
         run: |
@@ -58,6 +58,7 @@ jobs:
 
           echo "Deploying changed metadata to DevOrg..."
           if [ "${TEST_FLAG}" = "true" ]; then
-            sf project deploy start --source-dir $changed_files -l RunLocalTests -w 60 --verbose
+            sf project deploy start --source-dir "$changed_files" -l RunLocalTests -w 60 --verbose
           else
-            sf project deploy start --source-dir $changed_files -l NoTestRun -w 60 --verbose
+            sf project deploy start --source-dir "$changed_files" -l NoTestRun -w 60 --verbose
+          fi
