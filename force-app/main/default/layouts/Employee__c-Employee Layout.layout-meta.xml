@@ -15,6 +15,7 @@
                 <field>LastName__c</field>
             </layoutItems>
         </layoutColumns>
+        
         <layoutColumns/>
         <style>TwoColumnsTopToBottom</style>
     </layoutSections>
